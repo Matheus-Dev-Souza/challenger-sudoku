@@ -22,7 +22,7 @@ import static javax.swing.JOptionPane.*;
 
 public class MainScreen {
 
-    private final static Dimension dimension = new Dimension(600, 600);
+    private static final Dimension dimension = new Dimension(600, 600);
 
     private final BoardService boardService;
     private final NotifierService notifierService;
@@ -31,9 +31,12 @@ public class MainScreen {
     private JButton finishGameButton;
     private JButton resetButton;
 
+    private List<NumberText> numberFields;
+
     public MainScreen(final Map<String, String> gameConfig) {
         this.boardService = new BoardService(gameConfig);
         this.notifierService = new NotifierService();
+        this.numberFields = new ArrayList<>();
     }
 
     public void buildMainScreen() {
@@ -50,32 +53,30 @@ public class MainScreen {
             }
         }
 
-        // Agora usamos o método que agrupa os botões em um painel separado
         addControlButtons(mainPanel);
 
         mainFrame.revalidate();
         mainFrame.repaint();
     }
 
-    private List<Space> getSpacesFromSector(final List<List<Space>> spaces,
-                                            final int initCol, final int endCol,
-                                            final int initRow, final int endRow) {
+    private List<Space> getSpacesFromSector(List<List<Space>> spaces, int initCol, int endCol, int initRow, int endRow) {
         List<Space> spaceSector = new ArrayList<>();
         for (int r = initRow; r <= endRow; r++) {
             for (int c = initCol; c <= endCol; c++) {
-            	spaceSector.add(spaces.get(r).get(c));
+                spaceSector.add(spaces.get(r).get(c));
             }
         }
         return spaceSector;
     }
 
-    private JPanel generateSection(final List<Space> spaces) {
-        List<NumberText> fields = new ArrayList<>(spaces.stream().map(NumberText::new).toList());
+    private JPanel generateSection(List<Space> spaces) {
+        List<NumberText> fields = spaces.stream().map(NumberText::new).toList();
+        numberFields.addAll(fields); // Guardamos os campos para sugestões
         fields.forEach(t -> notifierService.subscribe(CLEAR_SPACE, t));
         return new SudokuSector(fields);
     }
 
-    private void addFinishGameButton(final JPanel panel) {
+    private void addFinishGameButton(JPanel panel) {
         finishGameButton = new FinishGameButton(_ -> {
             if (boardService.gameIsFinished()) {
                 showMessageDialog(null, "Parabéns você concluiu o jogo");
@@ -89,7 +90,7 @@ public class MainScreen {
         panel.add(finishGameButton);
     }
 
-    private void addCheckGameStatusButton(final JPanel panel) {
+    private void addCheckGameStatusButton(JPanel panel) {
         checkGameStatusButton = new CheckGameStatusButton(_ -> {
             var hasErrors = boardService.hasErrors();
             var gameStatus = boardService.getStatus();
@@ -100,18 +101,30 @@ public class MainScreen {
             };
             message += hasErrors ? " e contém erros" : " e não contém erros";
             showMessageDialog(null, message);
+
+            // Aqui geramos sugestões automáticas:
+            generateSuggestions();
         });
         panel.add(checkGameStatusButton);
     }
 
-    private void addResetButton(final JPanel panel) {
+    private void generateSuggestions() {
+        for (NumberText field : numberFields) {
+            if (!field.getSpace().isFixed() && field.getSpace().getActual() == null) {
+                List<Integer> possibleValues = boardService.getAvailableValues(field.getSpace());
+                field.showSketchSuggestions(possibleValues);
+            }
+        }
+    }
+
+    private void addResetButton(JPanel panel) {
         resetButton = new ResetButton(_ -> {
-            var dialogResult = showConfirmDialog(
-                    null,
-                    "Deseja realmente reiniciar o jogo?",
-                    "Limpar o jogo",
-                    YES_NO_OPTION,
-                    QUESTION_MESSAGE
+            int dialogResult = showConfirmDialog(
+                null,
+                "Deseja realmente reiniciar o jogo?",
+                "Limpar o jogo",
+                YES_NO_OPTION,
+                QUESTION_MESSAGE
             );
             if (dialogResult == 0) {
                 boardService.reset();
