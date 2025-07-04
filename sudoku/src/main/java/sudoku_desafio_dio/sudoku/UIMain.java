@@ -17,7 +17,7 @@ public class UIMain {
         if (args.length > 0) {
             Map<String, String> inputConfig = Stream.of(args)
                 .map(s -> s.split(";"))
-                .filter(parts -> parts.length == 2 && parts[0].contains(",")) // formato correto
+                .filter(parts -> parts.length == 2 && parts[0].contains(","))
                 .collect(toMap(parts -> parts[0], parts -> parts[1]));
 
             gameConfig.putAll(inputConfig);
